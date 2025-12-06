@@ -128,13 +128,63 @@ exports.getProduct = async (req, res, next) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    // Validate required fields
+    const { name, price, stock, category, colors, sizes, images } = req.body;
+
+    if (!name || !price || stock === undefined || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, price, stock, and category are required'
+      });
+    }
+
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one image is required'
+      });
+    }
+
+    if (!colors || !Array.isArray(colors) || colors.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one color is required'
+      });
+    }
+
+    if (!sizes || !Array.isArray(sizes) || sizes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one size is required'
+      });
+    }
+
+    // Filter out empty image URLs
+    const validImages = images.filter(img => img && img.trim());
+    if (validImages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one valid image URL is required'
+      });
+    }
+
+    const product = await Product.create({
+      ...req.body,
+      images: validImages
+    });
 
     res.status(201).json({
       success: true,
       product
     });
   } catch (error) {
+    // Handle duplicate slug error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A product with this name already exists'
+      });
+    }
     next(error);
   }
 };
