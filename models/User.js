@@ -9,8 +9,8 @@ const userSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
-    required: [true, 'Last name is required'],
-    trim: true
+    trim: true,
+    default: ''
   },
   email: {
     type: String,
@@ -22,9 +22,16 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: function() {
+      return !this.googleId; // Password required only if not using Google OAuth
+    },
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
+  },
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
   },
   phone: {
     type: String,
@@ -60,9 +67,10 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
+// Hash password before saving (only if password is provided)
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
+  // Skip password hashing if user is using OAuth (no password) or password not modified
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
   const salt = await bcrypt.genSalt(10);

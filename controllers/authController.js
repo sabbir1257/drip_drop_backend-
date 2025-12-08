@@ -110,6 +110,69 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// @desc    Google OAuth login/register
+// @route   POST /api/auth/google
+// @access  Public
+exports.googleAuth = async (req, res, next) => {
+  try {
+    const { email, firstName, lastName, googleId, avatar } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user exists
+    let user = await User.findOne({ email: normalizedEmail });
+
+    if (user) {
+      // User exists, update Google ID and avatar if needed
+      if (googleId && !user.googleId) {
+        user.googleId = googleId;
+      }
+      if (avatar && !user.avatar) {
+        user.avatar = avatar;
+      }
+      await user.save();
+    } else {
+      // Create new user
+      user = await User.create({
+        firstName: firstName || 'User',
+        lastName: lastName || '',
+        email: normalizedEmail,
+        googleId: googleId,
+        avatar: avatar,
+        password: Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12), // Random password for OAuth users
+        isEmailVerified: true, // Google emails are verified
+      });
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private

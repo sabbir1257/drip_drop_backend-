@@ -17,24 +17,56 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const favoriteRoutes = require('./routes/favoriteRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const brandRoutes = require('./routes/brandRoutes');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Rate limiting
+// CORS configuration - Must be before other middleware
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      process.env.FRONTEND_URL || 'http://localhost:3000',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS first (before rate limiting for preflight requests)
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
+// Rate limiting (skip for OPTIONS requests and more lenient in development)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // More lenient in development
+  skip: (req) => req.method === 'OPTIONS', // Skip rate limiting for preflight
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
 // Middleware
 app.use(limiter);
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -57,6 +89,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/brands', brandRoutes);
 
 // 404 handler
 app.use((req, res) => {

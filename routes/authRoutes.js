@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const {
   register,
   login,
+  googleAuth,
   getMe
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
@@ -33,6 +34,9 @@ router.post(
   validate,
   login
 );
+
+// @route   POST /api/auth/google
+router.post('/google', googleAuth);
 
 // @route   GET /api/auth/me
 router.get('/me', protect, getMe);
