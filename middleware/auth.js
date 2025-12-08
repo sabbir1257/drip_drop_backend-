@@ -52,3 +52,6 @@ exports.authorize = (...roles) => {
   };
 };
 
+// Admin only middleware (shorthand for authorize('admin'))
+exports.admin = exports.authorize('admin');
+

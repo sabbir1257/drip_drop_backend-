@@ -1,23 +1,35 @@
 const express = require('express');
 const {
   getProductReviews,
+  getPublicReviews,
   createReview,
   updateReview,
-  deleteReview
+  deleteReview,
+  getPendingReviews,
+  approveReview,
+  rejectReview,
+  checkReviewExists
 } = require('../controllers/reviewController');
-const { protect } = require('../middleware/auth');
+const { protect, admin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Public route
+// Public routes
 router.get('/product/:productId', getProductReviews);
+router.get('/public', getPublicReviews);
 
 // Protected routes
 router.use(protect);
 
+router.get('/check/:orderId/:productId', checkReviewExists);
 router.post('/', createReview);
 router.put('/:id', updateReview);
 router.delete('/:id', deleteReview);
+
+// Admin routes
+router.get('/pending', admin, getPendingReviews);
+router.put('/:id/approve', admin, approveReview);
+router.put('/:id/reject', admin, rejectReview);
 
 module.exports = router;
 

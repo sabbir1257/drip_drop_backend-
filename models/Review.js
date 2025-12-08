@@ -11,6 +11,11 @@ const reviewSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  order: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    required: true
+  },
   rating: {
     type: Number,
     required: [true, 'Rating is required'],
@@ -22,38 +27,50 @@ const reviewSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Comment cannot exceed 500 characters']
   },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
   isVerified: {
     type: Boolean,
-    default: false
+    default: true // Set to true if linked to an order
   }
 }, {
   timestamps: true
 });
 
-// One review per user per product
-reviewSchema.index({ user: 1, product: 1 }, { unique: true });
+// One review per user per order per product
+reviewSchema.index({ user: 1, order: 1, product: 1 }, { unique: true });
+// Index for admin queries
+reviewSchema.index({ approvalStatus: 1, createdAt: -1 });
 
-// Update product rating when review is saved
+// Update product rating when approved review is saved
 reviewSchema.post('save', async function() {
-  const Review = this.constructor;
-  const stats = await Review.aggregate([
-    {
-      $match: { product: this.product }
-    },
-    {
-      $group: {
-        _id: '$product',
-        avgRating: { $avg: '$rating' },
-        numReviews: { $sum: 1 }
+  if (this.approvalStatus === 'approved') {
+    const Review = this.constructor;
+    const stats = await Review.aggregate([
+      {
+        $match: { 
+          product: this.product,
+          approvalStatus: 'approved'
+        }
+      },
+      {
+        $group: {
+          _id: '$product',
+          avgRating: { $avg: '$rating' },
+          numReviews: { $sum: 1 }
+        }
       }
-    }
-  ]);
+    ]);
 
-  if (stats.length > 0) {
-    await mongoose.model('Product').findByIdAndUpdate(this.product, {
-      rating: Math.round(stats[0].avgRating * 10) / 10,
-      numReviews: stats[0].numReviews
-    });
+    if (stats.length > 0) {
+      await mongoose.model('Product').findByIdAndUpdate(this.product, {
+        rating: Math.round(stats[0].avgRating * 10) / 10,
+        numReviews: stats[0].numReviews
+      });
+    }
   }
 });
 

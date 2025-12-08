@@ -1,12 +1,15 @@
 const Review = require('../models/Review');
 const Order = require('../models/Order');
 
-// @desc    Get reviews for a product
+// @desc    Get approved reviews for a product
 // @route   GET /api/reviews/product/:productId
 // @access  Public
 exports.getProductReviews = async (req, res, next) => {
   try {
-    const reviews = await Review.find({ product: req.params.productId })
+    const reviews = await Review.find({ 
+      product: req.params.productId,
+      approvalStatus: 'approved'
+    })
       .populate('user', 'firstName lastName avatar')
       .sort({ createdAt: -1 });
 
@@ -20,53 +23,102 @@ exports.getProductReviews = async (req, res, next) => {
   }
 };
 
-// @desc    Create review
+// @desc    Get approved reviews for homepage
+// @route   GET /api/reviews/public
+// @access  Public
+exports.getPublicReviews = async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const reviews = await Review.find({ 
+      approvalStatus: 'approved'
+    })
+      .populate('user', 'firstName lastName avatar')
+      .populate('product', 'name images')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      reviews
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Create review (requires order)
 // @route   POST /api/reviews
 // @access  Private
 exports.createReview = async (req, res, next) => {
   try {
-    const { productId, rating, comment } = req.body;
+    const { orderId, productId, rating, comment } = req.body;
 
-    // Check if user has purchased this product
-    const hasPurchased = await Order.findOne({
+    // Validate required fields
+    if (!orderId || !productId || !rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order ID, Product ID, and Rating are required'
+      });
+    }
+
+    // Verify order exists and belongs to user, and is delivered
+    const order = await Order.findOne({
+      _id: orderId,
       user: req.user.id,
-      'orderItems.product': productId,
       orderStatus: 'delivered'
     });
 
-    // Optional: Only allow reviews from users who purchased
-    // if (!hasPurchased) {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'You must purchase this product before reviewing'
-    //   });
-    // }
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found or not delivered yet'
+      });
+    }
 
-    // Check if review already exists
+    // Verify product is in the order
+    const productInOrder = order.orderItems.some(
+      item => item.product.toString() === productId
+    );
+
+    if (!productInOrder) {
+      return res.status(400).json({
+        success: false,
+        message: 'This product is not in the specified order'
+      });
+    }
+
+    // Check if review already exists for this order
     const existingReview = await Review.findOne({
       user: req.user.id,
+      order: orderId,
       product: productId
     });
 
     if (existingReview) {
       return res.status(400).json({
         success: false,
-        message: 'You have already reviewed this product'
+        message: 'You have already reviewed this product for this order'
       });
     }
 
+    // Create review with pending status
     const review = await Review.create({
       user: req.user.id,
       product: productId,
+      order: orderId,
       rating,
-      comment,
-      isVerified: !!hasPurchased
+      comment: comment || '',
+      approvalStatus: 'pending',
+      isVerified: true
     });
 
     await review.populate('user', 'firstName lastName avatar');
+    await review.populate('product', 'name');
 
     res.status(201).json({
       success: true,
+      message: 'Review submitted successfully. It will be published after admin approval.',
       review
     });
   } catch (error) {
@@ -88,25 +140,34 @@ exports.updateReview = async (req, res, next) => {
       });
     }
 
-    // Make sure user owns the review
-    if (review.user.toString() !== req.user.id) {
+    // Allow user to update their own review OR admin to update any review
+    if (review.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this review'
       });
     }
 
+    // If admin is updating, allow changing approvalStatus
+    // If user is updating, only allow rating and comment changes
+    const updateData = req.user.role === 'admin' 
+      ? req.body 
+      : { rating: req.body.rating, comment: req.body.comment };
+
     review = await Review.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true
       }
-    ).populate('user', 'firstName lastName avatar');
+    )
+      .populate('user', 'firstName lastName avatar')
+      .populate('product', 'name images');
 
     res.status(200).json({
       success: true,
+      message: 'Review updated successfully',
       review
     });
   } catch (error) {
@@ -141,6 +202,106 @@ exports.deleteReview = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Review deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get pending reviews (Admin only)
+// @route   GET /api/reviews/pending
+// @access  Private/Admin
+exports.getPendingReviews = async (req, res, next) => {
+  try {
+    const reviews = await Review.find({ approvalStatus: 'pending' })
+      .populate('user', 'firstName lastName avatar')
+      .populate('product', 'name images')
+      .populate('order', 'orderItems')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      reviews
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Check if review exists for order/product (for customer)
+// @route   GET /api/reviews/check/:orderId/:productId
+// @access  Private
+exports.checkReviewExists = async (req, res, next) => {
+  try {
+    const { orderId, productId } = req.params;
+
+    const review = await Review.findOne({
+      user: req.user.id,
+      order: orderId,
+      product: productId
+    });
+
+    res.status(200).json({
+      success: true,
+      exists: !!review,
+      review: review || null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Approve review (Admin only)
+// @route   PUT /api/reviews/:id/approve
+// @access  Private/Admin
+exports.approveReview = async (req, res, next) => {
+  try {
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    review.approvalStatus = 'approved';
+    await review.save();
+
+    await review.populate('user', 'firstName lastName avatar');
+    await review.populate('product', 'name');
+
+    res.status(200).json({
+      success: true,
+      message: 'Review approved successfully',
+      review
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reject review (Admin only)
+// @route   PUT /api/reviews/:id/reject
+// @access  Private/Admin
+exports.rejectReview = async (req, res, next) => {
+  try {
+    const review = await Review.findById(req.params.id);
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review not found'
+      });
+    }
+
+    review.approvalStatus = 'rejected';
+    await review.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Review rejected successfully'
     });
   } catch (error) {
     next(error);
