@@ -100,17 +100,47 @@ exports.getProducts = async (req, res, next) => {
 // @access  Public
 exports.getProduct = async (req, res, next) => {
   try {
-    const product = await Product.findOne({
-      $or: [
-        { _id: req.params.id },
-        { slug: req.params.id }
-      ]
-    }).populate('reviews', 'rating comment user createdAt');
+    const { id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product identifier is required'
+      });
+    }
 
-    if (!product || !product.isActive) {
+    // Build query - try to match by ID (if valid ObjectId) or slug
+    const mongoose = require('mongoose');
+    const isValidObjectId = mongoose.Types.ObjectId.isValid(id);
+    
+    let query;
+    if (isValidObjectId) {
+      // If it's a valid ObjectId, try both _id and slug
+      query = {
+        $or: [
+          { _id: id },
+          { slug: id }
+        ]
+      };
+    } else {
+      // If not a valid ObjectId, only search by slug
+      query = { slug: id };
+    }
+
+    // Find product without populating reviews (reviews can be fetched separately if needed)
+    const product = await Product.findOne(query);
+
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
+      });
+    }
+
+    if (!product.isActive) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product is not available'
       });
     }
 
@@ -119,7 +149,22 @@ exports.getProduct = async (req, res, next) => {
       product
     });
   } catch (error) {
-    next(error);
+    // Handle MongoDB cast errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid product identifier'
+      });
+    }
+    
+    // Log the error for debugging
+    console.error('Error in getProduct:', error);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching product',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
