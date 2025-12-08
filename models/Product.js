@@ -41,7 +41,7 @@ const productSchema = new mongoose.Schema({
     enum: ['T-shirts', 'Shirts', 'Jeans', 'Shorts', 'Hoodie', 'Other']
   },
   colors: [{
-    type: String,
+    type: mongoose.Schema.Types.Mixed, // Can be String or Object {name, hex}
     required: true
   }],
   sizes: [{
