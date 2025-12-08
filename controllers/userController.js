@@ -21,25 +21,16 @@ exports.getProfile = async (req, res, next) => {
 // @access  Private
 exports.updateProfile = async (req, res, next) => {
   try {
-    const fieldsToUpdate = {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      phone: req.body.phone,
-      avatar: req.body.avatar
-    };
-
-    // Remove undefined fields
-    Object.keys(fieldsToUpdate).forEach(key =>
-      fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]
-    );
+    const fieldsToUpdate = {};
+    if (req.body.firstName) fieldsToUpdate.firstName = req.body.firstName;
+    if (req.body.lastName) fieldsToUpdate.lastName = req.body.lastName;
+    if (req.body.phone) fieldsToUpdate.phone = req.body.phone;
+    if (req.body.avatar) fieldsToUpdate.avatar = req.body.avatar;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
       fieldsToUpdate,
-      {
-        new: true,
-        runValidators: true
-      }
+      { new: true, runValidators: true }
     );
 
     res.status(200).json({

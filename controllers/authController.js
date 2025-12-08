@@ -71,29 +71,23 @@ exports.login = async (req, res, next) => {
     // Normalize email (lowercase)
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check for user
     const user = await User.findOne({ email: normalizedEmail }).select('+password');
 
     if (!user) {
-      console.log(`Login attempt failed: User not found for email: ${normalizedEmail}`);
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
 
-    // Check if password matches
     const isMatch = await user.comparePassword(password);
 
     if (!isMatch) {
-      console.log(`Login attempt failed: Password mismatch for user: ${user.email}`);
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password'
       });
     }
-
-    console.log(`Login successful for user: ${user.email}, role: ${user.role}`);
 
     // Generate token
     const token = generateToken(user._id);
@@ -112,12 +106,6 @@ exports.login = async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      email: email
-    });
     next(error);
   }
 };

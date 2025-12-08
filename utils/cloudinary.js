@@ -14,10 +14,13 @@ const getSignature = () => {
   }
 
   const timestamp = Math.round(new Date().getTime() / 1000);
+  
+  // For signed uploads, we need to include all parameters that will be sent
+  // The widget will add 'source=uw' automatically, so we don't include it in signature
+  // But we do need to include folder and any transformations
   const params = {
     timestamp: timestamp,
-    folder: 'drip_drop/products',
-    eager: 'w_1000,h_1000,c_limit,q_auto'
+    folder: 'drip_drop/products'
   };
   
   const signature = cloudinary.utils.api_sign_request(

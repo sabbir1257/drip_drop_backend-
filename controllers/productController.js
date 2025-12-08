@@ -128,7 +128,6 @@ exports.getProduct = async (req, res, next) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
   try {
-    // Validate required fields
     const { name, price, stock, category, colors, sizes, images } = req.body;
 
     if (!name || !price || stock === undefined || !category) {
@@ -159,7 +158,6 @@ exports.createProduct = async (req, res, next) => {
       });
     }
 
-    // Filter out empty image URLs
     const validImages = images.filter(img => img && img.trim());
     if (validImages.length === 0) {
       return res.status(400).json({
@@ -168,23 +166,55 @@ exports.createProduct = async (req, res, next) => {
       });
     }
 
-    const product = await Product.create({
-      ...req.body,
-      images: validImages
-    });
+    const productData = {
+      name: name.trim(),
+      price: Number(price),
+      stock: Number(stock),
+      category,
+      colors: Array.isArray(colors) ? colors : [],
+      sizes: Array.isArray(sizes) ? sizes : [],
+      images: validImages,
+      description: req.body.description?.trim() || '',
+      dressStyle: req.body.dressStyle || 'Casual',
+      isFeatured: req.body.isFeatured || false,
+      isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+    };
+
+    if (req.body.originalPrice && !isNaN(parseFloat(req.body.originalPrice)) && parseFloat(req.body.originalPrice) > 0) {
+      productData.originalPrice = Number(req.body.originalPrice);
+    }
+
+    if (req.body.discount !== undefined && !isNaN(parseFloat(req.body.discount)) && parseFloat(req.body.discount) >= 0 && parseFloat(req.body.discount) <= 100) {
+      productData.discount = Number(req.body.discount);
+    }
+
+    if (req.body.tags && Array.isArray(req.body.tags) && req.body.tags.length > 0) {
+      productData.tags = req.body.tags.filter(t => t && t.trim());
+    }
+
+    const product = await Product.create(productData);
 
     res.status(201).json({
       success: true,
       product
     });
   } catch (error) {
-    // Handle duplicate slug error
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
         message: 'A product with this name already exists'
       });
     }
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: `Validation error: ${errors.join(', ')}`,
+        errors: errors
+      });
+    }
+    
     next(error);
   }
 };

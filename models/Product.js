@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema({
   },
   slug: {
     type: String,
-    required: true,
+    required: false, // Will be auto-generated in pre-save hook
     unique: true,
     lowercase: true
   },
@@ -85,11 +85,15 @@ const productSchema = new mongoose.Schema({
 
 // Generate slug from name before saving
 productSchema.pre('save', function(next) {
-  if (this.isModified('name') && !this.slug) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+  // Always generate slug if it doesn't exist or name has changed
+  // For new documents, isNew will be true, so we always generate slug
+  if (this.isNew || !this.slug || this.isModified('name')) {
+    if (this.name) {
+      this.slug = this.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+    }
   }
   next();
 });
