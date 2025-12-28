@@ -22,6 +22,9 @@ const brandRoutes = require("./routes/brandRoutes");
 // Import middleware
 const errorHandler = require("./middleware/errorHandler");
 
+// Import Google Sheets service (for initialization)
+const googleSheetsService = require("./utils/googleSheets");
+
 const app = express();
 
 // CORS configuration - Must be before other middleware
@@ -182,6 +185,11 @@ if (missingEnvVars.length > 0) {
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
+  // Initialize Google Sheets service (optional, non-blocking)
+  googleSheetsService.initialize().catch((err) => {
+    console.warn("⚠ Google Sheets service not initialized:", err.message);
+  });
+
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📦 Environment: ${process.env.NODE_ENV || "development"}`);
