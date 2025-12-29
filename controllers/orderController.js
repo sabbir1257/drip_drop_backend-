@@ -5,51 +5,156 @@ const googleSheetsService = require("../utils/googleSheets");
 
 // @desc    Create new order
 // @route   POST /api/orders
-// @access  Private
+// @access  Public (supports both authenticated and guest orders)
 exports.createOrder = async (req, res, next) => {
   try {
     const {
+      orderItems,
       shippingAddress,
       paymentMethod,
       discountPercent = 20,
       deliveryFee = 15,
+      isGuestOrder = false,
     } = req.body;
 
-    // Get user cart
-    const cart = await Cart.findOne({ user: req.user.id }).populate(
-      "items.product"
-    );
+    // For authenticated users, get cart from database
+    if (req.user && !isGuestOrder) {
+      const cart = await Cart.findOne({ user: req.user.id }).populate(
+        "items.product"
+      );
 
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cart is empty",
+      if (!cart || cart.items.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Cart is empty",
+        });
+      }
+
+      // Build order items from cart
+      const cartOrderItems = cart.items.map((item) => ({
+        product: item.product._id,
+        name: item.product.name,
+        image: item.product.images[0] || "/logo.jpeg",
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        price: item.price,
+      }));
+
+      // Calculate totals
+      const subtotal = cart.items.reduce((sum, item) => {
+        return sum + item.price * item.quantity;
+      }, 0);
+
+      const discount = subtotal * (discountPercent / 100);
+      const total = subtotal - discount + deliveryFee;
+
+      // Create order
+      const order = await Order.create({
+        user: req.user.id,
+        isGuestOrder: false,
+        orderItems: cartOrderItems,
+        shippingAddress,
+        paymentMethod: paymentMethod || "cash",
+        subtotal,
+        discount,
+        deliveryFee,
+        total,
+      });
+
+      // Update product stock
+      for (const item of cart.items) {
+        await Product.findByIdAndUpdate(item.product._id, {
+          $inc: { stock: -item.quantity },
+        });
+      }
+
+      // Clear cart
+      cart.items = [];
+      await cart.save();
+
+      await order.populate("orderItems.product", "name images");
+
+      // Auto-sync to Google Sheets (async, non-blocking)
+      googleSheetsService.initialize().then((initialized) => {
+        if (initialized) {
+          googleSheetsService.syncOrder(order, Order).catch((err) => {
+            console.error(
+              "Failed to sync order to Google Sheets:",
+              err.message
+            );
+          });
+        }
+      });
+
+      return res.status(201).json({
+        success: true,
+        order,
       });
     }
 
-    // Build order items
-    const orderItems = cart.items.map((item) => ({
-      product: item.product._id,
-      name: item.product.name,
-      image: item.product.images[0] || "/logo.jpeg",
-      quantity: item.quantity,
-      size: item.size,
-      color: item.color,
-      price: item.price,
-    }));
+    // For guest orders, use orderItems from request body
+    if (!orderItems || orderItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Order items are required",
+      });
+    }
 
-    // Calculate totals
-    const subtotal = cart.items.reduce((sum, item) => {
-      return sum + item.price * item.quantity;
-    }, 0);
+    // Validate required fields for guest orders
+    if (!shippingAddress || !shippingAddress.email || !shippingAddress.phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and phone number are required for guest orders",
+      });
+    }
+
+    // Validate products and calculate totals
+    const validatedOrderItems = [];
+    let subtotal = 0;
+
+    for (const item of orderItems) {
+      const product = await Product.findById(item.product || item.productId);
+
+      if (!product || !product.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: `Product ${item.name || "unknown"} is not available`,
+        });
+      }
+
+      // Check stock
+      if (product.stock < item.quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for ${product.name}`,
+        });
+      }
+
+      validatedOrderItems.push({
+        product: product._id,
+        name: product.name,
+        image: item.image || product.images[0] || "/logo.jpeg",
+        quantity: item.quantity,
+        size: item.size,
+        color: item.color,
+        price: item.price || product.price,
+      });
+
+      subtotal += (item.price || product.price) * item.quantity;
+    }
 
     const discount = subtotal * (discountPercent / 100);
     const total = subtotal - discount + deliveryFee;
 
-    // Create order
+    // Create guest order
     const order = await Order.create({
-      user: req.user.id,
-      orderItems,
+      isGuestOrder: true,
+      guestInfo: {
+        email: shippingAddress.email,
+        phone: shippingAddress.phone,
+      },
+      orderItems: validatedOrderItems,
       shippingAddress,
       paymentMethod: paymentMethod || "cash",
       subtotal,
@@ -59,15 +164,11 @@ exports.createOrder = async (req, res, next) => {
     });
 
     // Update product stock
-    for (const item of cart.items) {
-      await Product.findByIdAndUpdate(item.product._id, {
+    for (const item of validatedOrderItems) {
+      await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity },
       });
     }
-
-    // Clear cart
-    cart.items = [];
-    await cart.save();
 
     await order.populate("orderItems.product", "name images");
 

@@ -18,6 +18,7 @@ const favoriteRoutes = require("./routes/favoriteRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const brandRoutes = require("./routes/brandRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 // Import middleware
 const errorHandler = require("./middleware/errorHandler");
@@ -105,9 +106,10 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(limiter);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
+app.use(express.json({ limit: "10mb" })); // Increased limit for base64 image uploads
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Serve static files from public/uploads directory
+app.use("/uploads", express.static("public/uploads"));
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.status(200).json({
@@ -128,6 +130,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/brands", brandRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // 404 handler
 app.use((req, res) => {

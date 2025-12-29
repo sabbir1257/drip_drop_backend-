@@ -11,10 +11,12 @@ const { protect, authorize } = require("../middleware/auth");
 
 const router = express.Router();
 
-// All order routes require authentication
+// Public route for order creation (supports guest checkout)
+router.post("/", createOrder);
+
+// All other order routes require authentication
 router.use(protect);
 
-router.post("/", createOrder);
 router.get("/", getOrders);
 router.get("/unsynced-count", authorize("admin"), getUnsyncedCount);
 router.post("/sync-sheets", authorize("admin"), syncOrdersToSheets);
