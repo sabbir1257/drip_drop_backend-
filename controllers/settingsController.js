@@ -57,6 +57,18 @@ exports.uploadLogo = async (req, res, next) => {
       });
     }
 
+    // Validate image type
+    const supportedFormats = ["png", "jpg", "jpeg", "webp", "svg", "gif"];
+    const imageType = imageData.match(/^data:image\/(\w+);base64,/);
+    if (!imageType || !supportedFormats.includes(imageType[1].toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported image format. Supported formats: ${supportedFormats.join(
+          ", "
+        )}`,
+      });
+    }
+
     let logoUrl;
     const hasCloudinaryConfig =
       process.env.CLOUDINARY_CLOUD_NAME &&
@@ -121,8 +133,11 @@ exports.uploadLogo = async (req, res, next) => {
         // Save file
         fs.writeFileSync(filePath, buffer);
 
-        // Return URL path (relative to server)
-        logoUrl = `/uploads/logos/${filename}`;
+        // Return full URL path (with backend server URL)
+        const backendUrl =
+          process.env.BACKEND_URL ||
+          `http://localhost:${process.env.PORT || 5000}`;
+        logoUrl = `${backendUrl}/uploads/logos/${filename}`;
         console.log("✅ Logo saved locally:", logoUrl);
       } catch (localError) {
         console.error("❌ Local storage failed:", localError);
