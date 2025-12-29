@@ -421,3 +421,125 @@ exports.getUnsyncedCount = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Export filtered orders to Google Sheets
+// @route   POST /api/orders/export-to-sheets
+// @access  Private/Admin
+exports.exportOrdersToSheets = async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    // Build query
+    let query = {};
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Fetch orders
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .populate("orderItems.product", "name")
+      .populate("user", "firstName lastName");
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No orders found for the selected date range",
+      });
+    }
+
+    // Prepare data for Google Sheets
+    const exportData = [];
+
+    // Add header row
+    exportData.push([
+      "Order ID",
+      "Name",
+      "Mobile Number",
+      "Email",
+      "Address",
+      "Product Name",
+      "Quantity",
+      "Color",
+      "Size",
+      "Item Price",
+      "Item Total",
+      "Subtotal",
+      "Delivery Fee",
+      "Discount",
+      "Total Bill",
+      "Payment Method",
+      "Payment Status",
+      "Order Status",
+      "Order Time",
+      "Note",
+    ]);
+
+    // Add data rows
+    orders.forEach((order) => {
+      order.orderItems.forEach((item) => {
+        exportData.push([
+          `#${order._id.toString().slice(-8)}`,
+          `${order.shippingAddress?.firstName || ""} ${
+            order.shippingAddress?.lastName || ""
+          }`.trim(),
+          order.shippingAddress?.phone || order.guestInfo?.phone || "N/A",
+          order.shippingAddress?.email || order.guestInfo?.email || "N/A",
+          `${order.shippingAddress?.streetAddress || ""}, ${
+            order.shippingAddress?.townCity || ""
+          }, ${order.shippingAddress?.state || ""} ${
+            order.shippingAddress?.zipCode || ""
+          }`.replace(/^[,\s]+|[,\s]+$/g, ""),
+          item.name,
+          item.quantity,
+          item.color,
+          item.size,
+          `৳${item.price.toFixed(2)}`,
+          `৳${(item.price * item.quantity).toFixed(2)}`,
+          `৳${order.subtotal.toFixed(2)}`,
+          `৳${order.deliveryFee.toFixed(2)}`,
+          `৳${order.discount.toFixed(2)}`,
+          `৳${order.total.toFixed(2)}`,
+          order.paymentMethod,
+          order.paymentStatus,
+          order.orderStatus,
+          order.createdAt.toLocaleString(),
+          order.notes || "N/A",
+        ]);
+      });
+    });
+
+    // Export to Google Sheets
+    const initialized = await googleSheetsService.initialize();
+    if (!initialized) {
+      return res.status(500).json({
+        success: false,
+        message: "Google Sheets API is not configured",
+      });
+    }
+
+    const result = await googleSheetsService.exportBulkData(exportData);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully exported ${orders.length} orders (${
+        exportData.length - 1
+      } items) to Google Sheets`,
+      ordersCount: orders.length,
+      itemsCount: exportData.length - 1,
+      sheetUrl: result.sheetUrl,
+    });
+  } catch (error) {
+    console.error("Export error:", error);
+    next(error);
+  }
+};

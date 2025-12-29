@@ -91,6 +91,10 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    notes: {
+      type: String,
+      default: "",
+    },
     syncedToSheet: {
       type: Boolean,
       default: false,
