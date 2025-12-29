@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const {
   getProfile,
   updateProfile,
@@ -6,24 +6,25 @@ const {
   updateAddress,
   deleteAddress,
   getAllUsers,
-  updateUserRole
-} = require('../controllers/userController');
-const { protect, authorize } = require('../middleware/auth');
+  updateUserRole,
+  deleteUser,
+} = require("../controllers/userController");
+const { protect, authorize } = require("../middleware/auth");
 
 const router = express.Router();
 
 // All user routes require authentication
 router.use(protect);
 
-router.get('/profile', getProfile);
-router.put('/profile', updateProfile);
-router.post('/addresses', addAddress);
-router.put('/addresses/:addressId', updateAddress);
-router.delete('/addresses/:addressId', deleteAddress);
+router.get("/profile", getProfile);
+router.put("/profile", updateProfile);
+router.post("/addresses", addAddress);
+router.put("/addresses/:addressId", updateAddress);
+router.delete("/addresses/:addressId", deleteAddress);
 
 // Admin only routes
-router.get('/', authorize('admin'), getAllUsers);
-router.put('/:id/role', authorize('admin'), updateUserRole);
+router.get("/", authorize("admin"), getAllUsers);
+router.put("/:id/role", authorize("admin"), updateUserRole);
+router.delete("/:id", authorize("admin"), deleteUser);
 
 module.exports = router;
-

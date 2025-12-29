@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require("../models/User");
 
 // @desc    Get user profile
 // @route   GET /api/users/profile
@@ -9,7 +9,7 @@ exports.getProfile = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
@@ -27,15 +27,14 @@ exports.updateProfile = async (req, res, next) => {
     if (req.body.phone) fieldsToUpdate.phone = req.body.phone;
     if (req.body.avatar) fieldsToUpdate.avatar = req.body.avatar;
 
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      fieldsToUpdate,
-      { new: true, runValidators: true }
-    );
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+      new: true,
+      runValidators: true,
+    });
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
@@ -51,7 +50,7 @@ exports.addAddress = async (req, res, next) => {
 
     // If this is the first address or isDefault is true, set others to false
     if (req.body.isDefault || user.addresses.length === 0) {
-      user.addresses.forEach(addr => {
+      user.addresses.forEach((addr) => {
         addr.isDefault = false;
       });
       req.body.isDefault = true;
@@ -62,7 +61,7 @@ exports.addAddress = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
@@ -80,13 +79,13 @@ exports.updateAddress = async (req, res, next) => {
     if (!address) {
       return res.status(404).json({
         success: false,
-        message: 'Address not found'
+        message: "Address not found",
       });
     }
 
     // If setting as default, unset others
     if (req.body.isDefault) {
-      user.addresses.forEach(addr => {
+      user.addresses.forEach((addr) => {
         addr.isDefault = false;
       });
     }
@@ -96,7 +95,7 @@ exports.updateAddress = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
@@ -110,13 +109,13 @@ exports.deleteAddress = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
     user.addresses = user.addresses.filter(
-      addr => addr._id.toString() !== req.params.addressId
+      (addr) => addr._id.toString() !== req.params.addressId
     );
     await user.save();
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
@@ -128,12 +127,12 @@ exports.deleteAddress = async (req, res, next) => {
 // @access  Private/Admin
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       count: users.length,
-      users
+      users,
     });
   } catch (error) {
     next(error);
@@ -152,7 +151,7 @@ exports.updateUserRole = async (req, res, next) => {
     if (userId === req.user.id) {
       return res.status(400).json({
         success: false,
-        message: 'You cannot change your own role'
+        message: "You cannot change your own role",
       });
     }
 
@@ -160,21 +159,55 @@ exports.updateUserRole = async (req, res, next) => {
       userId,
       { role },
       { new: true, runValidators: true }
-    ).select('-password');
+    ).select("-password");
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
 
+// @desc    Delete user (Admin only)
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+
+    // Prevent admin from deleting their own account
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot delete your own account",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
