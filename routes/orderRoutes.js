@@ -6,13 +6,15 @@ const {
   updateOrderStatus,
   syncOrdersToSheets,
   getUnsyncedCount,
+  trackGuestOrder,
 } = require("../controllers/orderController");
 const { protect, authorize } = require("../middleware/auth");
 
 const router = express.Router();
 
-// Public route for order creation (supports guest checkout)
+// Public routes
 router.post("/", createOrder);
+router.post("/track-guest", trackGuestOrder);
 
 // All other order routes require authentication
 router.use(protect);

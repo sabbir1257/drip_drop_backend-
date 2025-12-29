@@ -190,6 +190,44 @@ exports.createOrder = async (req, res, next) => {
   }
 };
 
+// @desc    Track guest order by phone and order ID
+// @route   POST /api/orders/track-guest
+// @access  Public
+exports.trackGuestOrder = async (req, res, next) => {
+  try {
+    const { phone, orderId } = req.body;
+
+    if (!phone || !orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number and Order ID are required",
+      });
+    }
+
+    // Find order by ID and phone number
+    const order = await Order.findOne({
+      _id: orderId,
+      isGuestOrder: true,
+      "shippingAddress.phone": phone,
+    }).populate("orderItems.product", "name images");
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Order not found. Please check your Order ID and phone number.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      order,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get user orders (or all orders for admin)
 // @route   GET /api/orders
 // @access  Private
