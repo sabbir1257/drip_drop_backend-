@@ -75,6 +75,46 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
       default: "pending",
     },
+    // Pathao Integration Fields
+    deliveryStatus: {
+      type: String,
+      enum: [
+        "placed",
+        "confirmed",
+        "picked_up",
+        "in_transit",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+        "failed",
+      ],
+      default: "placed",
+    },
+    pathaoConsignmentId: {
+      type: String,
+      default: null,
+    },
+    pathaoOrderId: {
+      type: String,
+      default: null,
+    },
+    trackingHistory: [
+      {
+        status: {
+          type: String,
+          required: true,
+        },
+        message: String,
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    lastStatusUpdate: {
+      type: Date,
+      default: Date.now,
+    },
     subtotal: {
       type: Number,
       required: true,

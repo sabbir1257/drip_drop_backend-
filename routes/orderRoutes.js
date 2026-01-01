@@ -8,6 +8,7 @@ const {
   getUnsyncedCount,
   trackGuestOrder,
   exportOrdersToSheets,
+  trackOrder,
 } = require("../controllers/orderController");
 const { protect, authorize } = require("../middleware/auth");
 
@@ -16,6 +17,7 @@ const router = express.Router();
 // Public routes
 router.post("/", createOrder);
 router.post("/track-guest", trackGuestOrder);
+router.get("/track/:orderId", trackOrder); // New tracking endpoint
 
 // All other order routes require authentication
 router.use(protect);

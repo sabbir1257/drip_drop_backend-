@@ -543,3 +543,95 @@ exports.exportOrdersToSheets = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Track order by ID (with optional phone verification)
+// @route   GET /api/orders/track/:orderId
+// @access  Public
+exports.trackOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { phone } = req.query;
+
+    // Try to find order by full ID or by last 8 characters
+    let order = await Order.findById(orderId).populate(
+      "orderItems.product",
+      "name images"
+    );
+
+    if (!order) {
+      // Try to find by last 8 characters of ID
+      const orders = await Order.find({}).populate(
+        "orderItems.product",
+        "name images"
+      );
+      order = orders.find(
+        (o) =>
+          o._id.toString().slice(-8).toUpperCase() === orderId.toUpperCase()
+      );
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found. Please check your Order ID and try again.",
+      });
+    }
+
+    // Optional phone verification for guest orders
+    if (phone && order.isGuestOrder) {
+      const orderPhone =
+        order.guestInfo?.phone || order.shippingAddress?.phone || "";
+
+      // Remove spaces and special characters for comparison
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
+      const normalizedOrderPhone = orderPhone.replace(/[\s\-\(\)]/g, "");
+
+      if (normalizedPhone !== normalizedOrderPhone) {
+        return res.status(403).json({
+          success: false,
+          message: "Phone number does not match order records.",
+        });
+      }
+    }
+
+    // Return tracking information
+    const trackingData = {
+      orderId: order._id.toString().slice(-8).toUpperCase(),
+      _id: order._id,
+      orderDate: order.createdAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      orderStatus: order.orderStatus,
+      deliveryStatus: order.deliveryStatus || order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      shippingAddress: {
+        firstName: order.shippingAddress?.firstName,
+        lastName: order.shippingAddress?.lastName,
+        phone: order.shippingAddress?.phone,
+        email: order.shippingAddress?.email,
+        address: `${order.shippingAddress?.streetAddress || ""}`,
+        city: order.shippingAddress?.townCity,
+        state: order.shippingAddress?.state,
+        postalCode: order.shippingAddress?.zipCode,
+        country: order.shippingAddress?.country || "Bangladesh",
+      },
+      orderItems: order.orderItems,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      deliveryFee: order.deliveryFee,
+      total: order.total,
+      pathaoConsignmentId: order.pathaoConsignmentId,
+      pathaoOrderId: order.pathaoOrderId,
+      trackingHistory: order.trackingHistory || [],
+      lastStatusUpdate: order.lastStatusUpdate || order.updatedAt,
+      deliveredAt: order.deliveredAt,
+      cancelledAt: order.cancelledAt,
+    };
+
+    res.status(200).json(trackingData);
+  } catch (error) {
+    console.error("Track order error:", error);
+    next(error);
+  }
+};
