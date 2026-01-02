@@ -67,6 +67,33 @@ const settingsSchema = new mongoose.Schema(
       default: 50,
     },
 
+    // Combo Offer Settings
+    comboOfferEnabled: {
+      type: Boolean,
+      default: true,
+    },
+    comboOfferMinQuantity: {
+      type: Number,
+      default: 2,
+      min: 1,
+    },
+    comboOfferMinLikes: {
+      type: Number,
+      default: 2,
+      min: 1,
+      max: 5,
+    },
+    comboOfferApplyToAll: {
+      type: Boolean,
+      default: true,
+    },
+    comboOfferProductIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
+
     // Discount Settings
     defaultDiscountPercent: {
       type: Number,

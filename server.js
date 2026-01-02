@@ -23,6 +23,7 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const colorRoutes = require("./routes/colorRoutes");
 const campaignRoutes = require("./routes/campaignRoutes");
 const heroRoutes = require("./routes/heroRoutes");
+const likeRoutes = require("./routes/likeRoutes");
 
 // Import middleware
 const errorHandler = require("./middleware/errorHandler");
@@ -139,6 +140,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/colors", colorRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/heroes", heroRoutes);
+app.use("/api/likes", likeRoutes);
 
 // 404 handler
 app.use((req, res) => {
