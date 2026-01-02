@@ -120,6 +120,14 @@ exports.checkComboOffer = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
 
+    // Validate input
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
+
     const Settings = require("../models/Settings");
     const settings = await Settings.getSettings();
 
@@ -187,6 +195,7 @@ exports.checkComboOffer = async (req, res) => {
     });
   } catch (error) {
     console.error("Check combo offer error:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       success: false,
       message: "Failed to check combo offer",
