@@ -104,7 +104,16 @@ if (process.env.NODE_ENV === "development") {
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === "production" ? 100 : 1000, // More lenient in development
-  skip: (req) => req.method === "OPTIONS", // Skip rate limiting for preflight
+  skip: (req) => {
+    // Skip rate limiting for preflight, public settings, and static files
+    return (
+      req.method === "OPTIONS" ||
+      req.path === "/api/settings" ||
+      req.path.startsWith("/uploads/") ||
+      req.path.startsWith("/_next/") ||
+      req.path.includes("/public/")
+    );
+  },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
