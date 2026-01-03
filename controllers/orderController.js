@@ -635,3 +635,71 @@ exports.trackOrder = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Update order details (shipping address, notes)
+// @route   PUT /api/orders/:id
+// @access  Private/Admin
+exports.updateOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const { shippingAddress, notes } = req.body;
+
+    // Update shipping address if provided
+    if (shippingAddress) {
+      order.shippingAddress = {
+        ...order.shippingAddress,
+        ...shippingAddress,
+      };
+    }
+
+    // Update notes if provided
+    if (notes !== undefined) {
+      order.notes = notes;
+    }
+
+    const updatedOrder = await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Update order error:", error);
+    next(error);
+  }
+};
+
+// @desc    Delete order
+// @route   DELETE /api/orders/:id
+// @access  Private/Admin
+exports.deleteOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    await order.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete order error:", error);
+    next(error);
+  }
+};

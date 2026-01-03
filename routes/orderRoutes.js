@@ -4,6 +4,8 @@ const {
   getOrders,
   getOrder,
   updateOrderStatus,
+  updateOrder,
+  deleteOrder,
   syncOrdersToSheets,
   getUnsyncedCount,
   trackGuestOrder,
@@ -27,6 +29,8 @@ router.get("/unsynced-count", authorize("admin"), getUnsyncedCount);
 router.post("/sync-sheets", authorize("admin"), syncOrdersToSheets);
 router.post("/export-to-sheets", authorize("admin"), exportOrdersToSheets);
 router.get("/:id", getOrder);
+router.put("/:id", authorize("admin"), updateOrder);
 router.put("/:id/status", authorize("admin"), updateOrderStatus);
+router.delete("/:id", authorize("admin"), deleteOrder);
 
 module.exports = router;
