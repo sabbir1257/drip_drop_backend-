@@ -20,7 +20,6 @@ const contactRoutes = require("./routes/contactRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const brandRoutes = require("./routes/brandRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
-const categoryRoutes = require("./routes/categoryRoutes");
 const colorRoutes = require("./routes/colorRoutes");
 const campaignRoutes = require("./routes/campaignRoutes");
 const heroRoutes = require("./routes/heroRoutes");
