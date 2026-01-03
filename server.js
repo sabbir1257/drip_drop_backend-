@@ -20,6 +20,11 @@ const contactRoutes = require("./routes/contactRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const brandRoutes = require("./routes/brandRoutes");
 const settingsRoutes = require("./routes/settingsRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const colorRoutes = require("./routes/colorRoutes");
+const campaignRoutes = require("./routes/campaignRoutes");
+const heroRoutes = require("./routes/heroRoutes");
+const likeRoutes = require("./routes/likeRoutes");
 
 // Import middleware
 const errorHandler = require("./middleware/errorHandler");
@@ -133,6 +138,11 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/colors", colorRoutes);
+app.use("/api/campaigns", campaignRoutes);
+app.use("/api/heroes", heroRoutes);
+app.use("/api/likes", likeRoutes);
 
 // 404 handler
 app.use((req, res) => {

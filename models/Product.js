@@ -42,6 +42,10 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: [true, "Category is required"],
       trim: true,
+<<<<<<< HEAD
+=======
+      // Removed enum to allow dynamic categories
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
     },
     colors: [
       {

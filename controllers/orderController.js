@@ -421,3 +421,217 @@ exports.getUnsyncedCount = async (req, res, next) => {
     next(error);
   }
 };
+
+// @desc    Export filtered orders to Google Sheets
+// @route   POST /api/orders/export-to-sheets
+// @access  Private/Admin
+exports.exportOrdersToSheets = async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    // Build query
+    let query = {};
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate);
+        endDateTime.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = endDateTime;
+      }
+    }
+
+    // Fetch orders
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .populate("orderItems.product", "name")
+      .populate("user", "firstName lastName");
+
+    if (orders.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No orders found for the selected date range",
+      });
+    }
+
+    // Prepare data for Google Sheets
+    const exportData = [];
+
+    // Add header row
+    exportData.push([
+      "Order ID",
+      "Name",
+      "Mobile Number",
+      "Email",
+      "Address",
+      "Product Name",
+      "Quantity",
+      "Color",
+      "Size",
+      "Item Price",
+      "Item Total",
+      "Subtotal",
+      "Delivery Fee",
+      "Discount",
+      "Total Bill",
+      "Payment Method",
+      "Payment Status",
+      "Order Status",
+      "Order Time",
+      "Note",
+    ]);
+
+    // Add data rows
+    orders.forEach((order) => {
+      order.orderItems.forEach((item) => {
+        exportData.push([
+          `#${order._id.toString().slice(-8)}`,
+          `${order.shippingAddress?.firstName || ""} ${
+            order.shippingAddress?.lastName || ""
+          }`.trim(),
+          order.shippingAddress?.phone || order.guestInfo?.phone || "N/A",
+          order.shippingAddress?.email || order.guestInfo?.email || "N/A",
+          `${order.shippingAddress?.streetAddress || ""}, ${
+            order.shippingAddress?.townCity || ""
+          }, ${order.shippingAddress?.state || ""} ${
+            order.shippingAddress?.zipCode || ""
+          }`.replace(/^[,\s]+|[,\s]+$/g, ""),
+          item.name,
+          item.quantity,
+          item.color,
+          item.size,
+          `৳${item.price.toFixed(2)}`,
+          `৳${(item.price * item.quantity).toFixed(2)}`,
+          `৳${order.subtotal.toFixed(2)}`,
+          `৳${order.deliveryFee.toFixed(2)}`,
+          `৳${order.discount.toFixed(2)}`,
+          `৳${order.total.toFixed(2)}`,
+          order.paymentMethod,
+          order.paymentStatus,
+          order.orderStatus,
+          order.createdAt.toLocaleString(),
+          order.notes || "N/A",
+        ]);
+      });
+    });
+
+    // Export to Google Sheets
+    const initialized = await googleSheetsService.initialize();
+    if (!initialized) {
+      return res.status(500).json({
+        success: false,
+        message: "Google Sheets API is not configured",
+      });
+    }
+
+    const result = await googleSheetsService.exportBulkData(exportData);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully exported ${orders.length} orders (${
+        exportData.length - 1
+      } items) to Google Sheets`,
+      ordersCount: orders.length,
+      itemsCount: exportData.length - 1,
+      sheetUrl: result.sheetUrl,
+    });
+  } catch (error) {
+    console.error("Export error:", error);
+    next(error);
+  }
+};
+
+// @desc    Track order by ID (with optional phone verification)
+// @route   GET /api/orders/track/:orderId
+// @access  Public
+exports.trackOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params;
+    const { phone } = req.query;
+
+    // Try to find order by full ID or by last 8 characters
+    let order = await Order.findById(orderId).populate(
+      "orderItems.product",
+      "name images"
+    );
+
+    if (!order) {
+      // Try to find by last 8 characters of ID
+      const orders = await Order.find({}).populate(
+        "orderItems.product",
+        "name images"
+      );
+      order = orders.find(
+        (o) =>
+          o._id.toString().slice(-8).toUpperCase() === orderId.toUpperCase()
+      );
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found. Please check your Order ID and try again.",
+      });
+    }
+
+    // Optional phone verification for guest orders
+    if (phone && order.isGuestOrder) {
+      const orderPhone =
+        order.guestInfo?.phone || order.shippingAddress?.phone || "";
+
+      // Remove spaces and special characters for comparison
+      const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
+      const normalizedOrderPhone = orderPhone.replace(/[\s\-\(\)]/g, "");
+
+      if (normalizedPhone !== normalizedOrderPhone) {
+        return res.status(403).json({
+          success: false,
+          message: "Phone number does not match order records.",
+        });
+      }
+    }
+
+    // Return tracking information
+    const trackingData = {
+      orderId: order._id.toString().slice(-8).toUpperCase(),
+      _id: order._id,
+      orderDate: order.createdAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      orderStatus: order.orderStatus,
+      deliveryStatus: order.deliveryStatus || order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      paymentMethod: order.paymentMethod,
+      shippingAddress: {
+        firstName: order.shippingAddress?.firstName,
+        lastName: order.shippingAddress?.lastName,
+        phone: order.shippingAddress?.phone,
+        email: order.shippingAddress?.email,
+        address: `${order.shippingAddress?.streetAddress || ""}`,
+        city: order.shippingAddress?.townCity,
+        state: order.shippingAddress?.state,
+        postalCode: order.shippingAddress?.zipCode,
+        country: order.shippingAddress?.country || "Bangladesh",
+      },
+      orderItems: order.orderItems,
+      subtotal: order.subtotal,
+      discount: order.discount,
+      deliveryFee: order.deliveryFee,
+      total: order.total,
+      pathaoConsignmentId: order.pathaoConsignmentId,
+      pathaoOrderId: order.pathaoOrderId,
+      trackingHistory: order.trackingHistory || [],
+      lastStatusUpdate: order.lastStatusUpdate || order.updatedAt,
+      deliveredAt: order.deliveredAt,
+      cancelledAt: order.cancelledAt,
+    };
+
+    res.status(200).json(trackingData);
+  } catch (error) {
+    console.error("Track order error:", error);
+    next(error);
+  }
+};

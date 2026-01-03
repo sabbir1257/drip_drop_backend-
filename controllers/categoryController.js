@@ -1,11 +1,15 @@
 const Category = require("../models/Category");
+<<<<<<< HEAD
 const Product = require("../models/Product");
+=======
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
 
 // @desc    Get all categories
 // @route   GET /api/categories
 // @access  Public
 exports.getCategories = async (req, res, next) => {
   try {
+<<<<<<< HEAD
     // Get all active categories
     const categories = await Category.find({ isActive: true }).sort({
       name: 1,
@@ -35,6 +39,21 @@ exports.getCategories = async (req, res, next) => {
       success: true,
       count: categoriesWithCount.length,
       categories: categoriesWithCount,
+=======
+    const { status } = req.query;
+
+    const filter = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    const categories = await Category.find(filter).sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      categories,
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
     });
   } catch (error) {
     next(error);
@@ -64,11 +83,16 @@ exports.getCategory = async (req, res, next) => {
   }
 };
 
+<<<<<<< HEAD
 // @desc    Create category
+=======
+// @desc    Create new category
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
 // @route   POST /api/categories
 // @access  Private/Admin
 exports.createCategory = async (req, res, next) => {
   try {
+<<<<<<< HEAD
     const { name } = req.body;
 
     if (!name || !name.trim()) {
@@ -104,6 +128,29 @@ exports.createCategory = async (req, res, next) => {
         message: "This category already exists",
       });
     }
+=======
+    const { name, status } = req.body;
+
+    // Check if category already exists (case-insensitive)
+    const existingCategory = await Category.findByNameCaseInsensitive(name);
+    if (existingCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category already exists",
+      });
+    }
+
+    const category = await Category.create({
+      name: name.trim(),
+      status: status || "active",
+    });
+
+    res.status(201).json({
+      success: true,
+      category,
+    });
+  } catch (error) {
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
     next(error);
   }
 };
@@ -113,6 +160,7 @@ exports.createCategory = async (req, res, next) => {
 // @access  Private/Admin
 exports.updateCategory = async (req, res, next) => {
   try {
+<<<<<<< HEAD
     const { name } = req.body;
 
     if (!name || !name.trim()) {
@@ -140,6 +188,11 @@ exports.updateCategory = async (req, res, next) => {
       { name: name.trim() },
       { new: true, runValidators: true }
     );
+=======
+    const { name, status } = req.body;
+
+    let category = await Category.findById(req.params.id);
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
 
     if (!category) {
       return res.status(404).json({
@@ -148,6 +201,7 @@ exports.updateCategory = async (req, res, next) => {
       });
     }
 
+<<<<<<< HEAD
     res.status(200).json({
       success: true,
       message: "Category updated successfully",
@@ -160,6 +214,29 @@ exports.updateCategory = async (req, res, next) => {
         message: "This category name already exists",
       });
     }
+=======
+    // If name is being updated, check for duplicates
+    if (name && name !== category.name) {
+      const existingCategory = await Category.findByNameCaseInsensitive(name);
+      if (existingCategory) {
+        return res.status(400).json({
+          success: false,
+          message: "Category name already exists",
+        });
+      }
+    }
+
+    category.name = name || category.name;
+    category.status = status || category.status;
+
+    await category.save();
+
+    res.status(200).json({
+      success: true,
+      category,
+    });
+  } catch (error) {
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
     next(error);
   }
 };
@@ -178,6 +255,7 @@ exports.deleteCategory = async (req, res, next) => {
       });
     }
 
+<<<<<<< HEAD
     // Check if any products use this category
     const productsCount = await Product.countDocuments({
       category: category.name,
@@ -190,6 +268,8 @@ exports.deleteCategory = async (req, res, next) => {
       });
     }
 
+=======
+>>>>>>> 8009cdbae02630327764d1503dadb2996d88d230
     await category.deleteOne();
 
     res.status(200).json({

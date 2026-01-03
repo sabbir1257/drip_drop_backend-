@@ -400,6 +400,136 @@ class GoogleSheetsService {
 
     return await this.syncOrders(filteredOrders);
   }
+
+  /**
+   * Export bulk data to a new sheet tab
+   */
+  async exportBulkData(data) {
+    if (!this.isReady()) {
+      throw new Error("Google Sheets service is not initialized");
+    }
+
+    try {
+      // Create a new sheet tab with timestamp
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, "-")
+        .slice(0, -5);
+      const sheetTitle = `Export_${timestamp}`;
+
+      // Add new sheet
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: this.spreadsheetId,
+        resource: {
+          requests: [
+            {
+              addSheet: {
+                properties: {
+                  title: sheetTitle,
+                },
+              },
+            },
+          ],
+        },
+      });
+
+      // Write data to the new sheet
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${sheetTitle}!A1`,
+        valueInputOption: "RAW",
+        resource: {
+          values: data,
+        },
+      });
+
+      // Format header row (bold, background color)
+      const sheetId = await this.getSheetId(sheetTitle);
+      if (sheetId !== null) {
+        await this.sheets.spreadsheets.batchUpdate({
+          spreadsheetId: this.spreadsheetId,
+          resource: {
+            requests: [
+              {
+                repeatCell: {
+                  range: {
+                    sheetId: sheetId,
+                    startRowIndex: 0,
+                    endRowIndex: 1,
+                  },
+                  cell: {
+                    userEnteredFormat: {
+                      backgroundColor: {
+                        red: 0.2,
+                        green: 0.2,
+                        blue: 0.8,
+                      },
+                      textFormat: {
+                        foregroundColor: {
+                          red: 1.0,
+                          green: 1.0,
+                          blue: 1.0,
+                        },
+                        fontSize: 11,
+                        bold: true,
+                      },
+                    },
+                  },
+                  fields: "userEnteredFormat(backgroundColor,textFormat)",
+                },
+              },
+              {
+                autoResizeDimensions: {
+                  dimensions: {
+                    sheetId: sheetId,
+                    dimension: "COLUMNS",
+                    startIndex: 0,
+                    endIndex: 20,
+                  },
+                },
+              },
+            ],
+          },
+        });
+      }
+
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}/edit#gid=${sheetId}`;
+
+      console.log(
+        `✓ Exported ${data.length - 1} rows to Google Sheets: ${sheetTitle}`
+      );
+
+      return {
+        success: true,
+        sheetTitle,
+        sheetUrl,
+        rowCount: data.length - 1,
+      };
+    } catch (error) {
+      console.error("Error exporting bulk data:", error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get sheet ID by title
+   */
+  async getSheetId(sheetTitle) {
+    try {
+      const response = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId,
+      });
+
+      const sheet = response.data.sheets.find(
+        (s) => s.properties.title === sheetTitle
+      );
+
+      return sheet ? sheet.properties.sheetId : null;
+    } catch (error) {
+      console.error("Error getting sheet ID:", error.message);
+      return null;
+    }
+  }
 }
 
 // Create singleton instance
