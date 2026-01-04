@@ -118,7 +118,7 @@ exports.getLikeCount = async (req, res) => {
 // @access  Public
 exports.checkComboOffer = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity = 1 } = req.body;
 
     // Validate input
     if (!productId) {
@@ -128,8 +128,36 @@ exports.checkComboOffer = async (req, res) => {
       });
     }
 
-    const Settings = require("../models/Settings");
-    const settings = await Settings.getSettings();
+    // Verify product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Default settings if Settings model fails
+    let settings = {
+      comboOfferEnabled: true,
+      comboOfferMinQuantity: 2,
+      comboOfferMinLikes: 2,
+      comboOfferApplyToAll: true,
+      comboOfferProductIds: [],
+    };
+
+    try {
+      const Settings = require("../models/Settings");
+      const fetchedSettings = await Settings.getSettings();
+      if (fetchedSettings) {
+        settings = fetchedSettings;
+      }
+    } catch (settingsError) {
+      console.warn(
+        "Failed to fetch settings, using defaults:",
+        settingsError.message
+      );
+    }
 
     // Check if combo offer is enabled
     if (!settings.comboOfferEnabled) {
@@ -165,8 +193,13 @@ exports.checkComboOffer = async (req, res) => {
           ),
     };
 
-    // Get like count
-    const likeCount = await ProductLike.getTotalLikes(productId, identifier);
+    // Get like count with error handling
+    let likeCount = 0;
+    try {
+      likeCount = await ProductLike.getTotalLikes(productId, identifier);
+    } catch (likeError) {
+      console.warn("Failed to get like count, using 0:", likeError.message);
+    }
 
     // Check if combo offer applies
     const quantityQualifies = quantity >= settings.comboOfferMinQuantity;
@@ -181,7 +214,7 @@ exports.checkComboOffer = async (req, res) => {
         ? quantityQualifies
           ? `${quantity} items qualify for free delivery`
           : `${likeCount} likes qualify for free delivery`
-        : "Need 2+ items or 2+ likes for free delivery",
+        : `Need ${settings.comboOfferMinQuantity}+ items or ${settings.comboOfferMinLikes}+ likes for free delivery`,
       settings: {
         minQuantity: settings.comboOfferMinQuantity,
         minLikes: settings.comboOfferMinLikes,
@@ -199,7 +232,10 @@ exports.checkComboOffer = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to check combo offer",
-      error: error.message,
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
     });
   }
 };
