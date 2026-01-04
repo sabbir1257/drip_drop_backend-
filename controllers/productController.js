@@ -308,14 +308,32 @@ exports.updateProduct = async (req, res, next) => {
       });
     }
 
+    const wasActive = product.isActive;
+    const productId = req.params.id;
+
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
 
+    // If product was active and is now inactive, remove from all carts
+    let cartsUpdated = 0;
+    if (wasActive && product.isActive === false) {
+      const Cart = require("../models/Cart");
+      const updateResult = await Cart.updateMany(
+        { "items.product": productId },
+        { $pull: { items: { product: productId } } }
+      );
+      cartsUpdated = updateResult.modifiedCount;
+      console.log(
+        `Product ${productId} set to inactive. Removed from ${cartsUpdated} carts.`
+      );
+    }
+
     res.status(200).json({
       success: true,
       product,
+      cartsUpdated,
     });
   } catch (error) {
     next(error);
@@ -336,11 +354,26 @@ exports.deleteProduct = async (req, res, next) => {
       });
     }
 
+    const productId = req.params.id;
+
+    // Delete the product
     await product.deleteOne();
+
+    // Remove this product from all user carts
+    const Cart = require("../models/Cart");
+    const updateResult = await Cart.updateMany(
+      { "items.product": productId },
+      { $pull: { items: { product: productId } } }
+    );
+
+    console.log(
+      `Product ${productId} deleted. Removed from ${updateResult.modifiedCount} carts.`
+    );
 
     res.status(200).json({
       success: true,
       message: "Product deleted successfully",
+      cartsUpdated: updateResult.modifiedCount,
     });
   } catch (error) {
     next(error);
