@@ -4,9 +4,11 @@ const Product = require("../models/Product");
 // Generate guest identifier from IP and user agent
 const generateGuestId = (ipAddress, userAgent) => {
   const crypto = require("crypto");
+  const safeIp = ipAddress || "unknown-ip";
+  const safeUserAgent = userAgent || "unknown-agent";
   return crypto
     .createHash("sha256")
-    .update(ipAddress + userAgent)
+    .update(safeIp + safeUserAgent)
     .digest("hex")
     .substring(0, 32);
 };
@@ -28,14 +30,12 @@ exports.likeProduct = async (req, res) => {
     }
 
     // Get user identifier
+    const ipAddress = req.ip || req.connection?.remoteAddress || "127.0.0.1";
+    const userAgent = req.headers["user-agent"] || "unknown";
+
     const identifier = {
       userId: req.user ? req.user.id : null,
-      guestId: req.user
-        ? null
-        : generateGuestId(
-            req.ip || req.connection.remoteAddress,
-            req.headers["user-agent"]
-          ),
+      guestId: req.user ? null : generateGuestId(ipAddress, userAgent),
     };
 
     // Check if can like
@@ -53,8 +53,8 @@ exports.likeProduct = async (req, res) => {
     const like = await ProductLike.addLike(
       productId,
       identifier,
-      req.ip || req.connection.remoteAddress,
-      req.headers["user-agent"]
+      ipAddress,
+      userAgent
     );
 
     res.status(200).json({
@@ -81,14 +81,12 @@ exports.getLikeCount = async (req, res) => {
     const { productId } = req.params;
 
     // Get user identifier
+    const ipAddress = req.ip || req.connection?.remoteAddress || "127.0.0.1";
+    const userAgent = req.headers["user-agent"] || "unknown";
+
     const identifier = {
       userId: req.user ? req.user.id : null,
-      guestId: req.user
-        ? null
-        : generateGuestId(
-            req.ip || req.connection.remoteAddress,
-            req.headers["user-agent"]
-          ),
+      guestId: req.user ? null : generateGuestId(ipAddress, userAgent),
     };
 
     // Get total likes for this user/guest
@@ -202,22 +200,24 @@ exports.checkComboOffer = async (req, res) => {
     }
 
     // Get user identifier
+    const ipAddress = req.ip || req.connection?.remoteAddress || "127.0.0.1";
+    const userAgent = req.headers["user-agent"] || "unknown";
+
     const identifier = {
       userId: req.user ? req.user.id : null,
-      guestId: req.user
-        ? null
-        : generateGuestId(
-            req.ip || req.connection.remoteAddress,
-            req.headers["user-agent"]
-          ),
+      guestId: req.user ? null : generateGuestId(ipAddress, userAgent),
     };
+
+    console.log("Generated identifier:", identifier);
 
     // Get like count with error handling
     let likeCount = 0;
     try {
       likeCount = await ProductLike.getTotalLikes(productId, identifier);
+      console.log("Like count retrieved:", likeCount);
     } catch (likeError) {
       console.warn("Failed to get like count, using 0:", likeError.message);
+      console.warn("Like error stack:", likeError.stack);
     }
 
     // Check if combo offer applies
