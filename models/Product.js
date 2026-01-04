@@ -38,6 +38,25 @@ const productSchema = new mongoose.Schema(
       min: [0, "Discount cannot be negative"],
       max: [100, "Discount cannot exceed 100%"],
     },
+    isComboOffer: {
+      type: Boolean,
+      default: false,
+    },
+    comboPrice: {
+      type: Number,
+      default: null,
+      min: [0, "Combo price must be positive"],
+    },
+    comboDiscount: {
+      type: Number,
+      default: null,
+      min: [0, "Combo discount cannot be negative"],
+      max: [100, "Combo discount cannot exceed 100%"],
+    },
+    freeDelivery: {
+      type: Boolean,
+      default: false,
+    },
     category: {
       type: String,
       required: [true, "Category is required"],

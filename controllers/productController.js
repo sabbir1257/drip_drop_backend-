@@ -1,4 +1,4 @@
-const Product = require('../models/Product');
+const Product = require("../models/Product");
 
 // @desc    Get all products
 // @route   GET /api/products
@@ -15,7 +15,7 @@ exports.getProducts = async (req, res, next) => {
       sort,
       page = 1,
       limit = 12,
-      featured
+      featured,
     } = req.query;
 
     // Build query
@@ -43,7 +43,7 @@ exports.getProducts = async (req, res, next) => {
       query.$text = { $search: search };
     }
 
-    if (featured === 'true') {
+    if (featured === "true") {
       query.isFeatured = true;
     }
 
@@ -51,16 +51,16 @@ exports.getProducts = async (req, res, next) => {
     let sortOption = {};
     if (sort) {
       switch (sort) {
-        case 'price-low':
+        case "price-low":
           sortOption = { price: 1 };
           break;
-        case 'price-high':
+        case "price-high":
           sortOption = { price: -1 };
           break;
-        case 'rating':
+        case "rating":
           sortOption = { rating: -1 };
           break;
-        case 'newest':
+        case "newest":
           sortOption = { createdAt: -1 };
           break;
         default:
@@ -88,7 +88,7 @@ exports.getProducts = async (req, res, next) => {
       total,
       page: pageNum,
       pages: Math.ceil(total / limitNum),
-      products
+      products,
     });
   } catch (error) {
     next(error);
@@ -101,26 +101,23 @@ exports.getProducts = async (req, res, next) => {
 exports.getProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     if (!id) {
       return res.status(400).json({
         success: false,
-        message: 'Product identifier is required'
+        message: "Product identifier is required",
       });
     }
 
     // Build query - try to match by ID (if valid ObjectId) or slug
-    const mongoose = require('mongoose');
+    const mongoose = require("mongoose");
     const isValidObjectId = mongoose.Types.ObjectId.isValid(id);
-    
+
     let query;
     if (isValidObjectId) {
       // If it's a valid ObjectId, try both _id and slug
       query = {
-        $or: [
-          { _id: id },
-          { slug: id }
-        ]
+        $or: [{ _id: id }, { slug: id }],
       };
     } else {
       // If not a valid ObjectId, only search by slug
@@ -133,37 +130,37 @@ exports.getProduct = async (req, res, next) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     if (!product.isActive) {
       return res.status(404).json({
         success: false,
-        message: 'Product is not available'
+        message: "Product is not available",
       });
     }
 
     res.status(200).json({
       success: true,
-      product
+      product,
     });
   } catch (error) {
     // Handle MongoDB cast errors
-    if (error.name === 'CastError') {
+    if (error.name === "CastError") {
       return res.status(400).json({
         success: false,
-        message: 'Invalid product identifier'
+        message: "Invalid product identifier",
       });
     }
-    
+
     // Log the error for debugging
-    console.error('Error in getProduct:', error);
-    
+    console.error("Error in getProduct:", error);
+
     return res.status(500).json({
       success: false,
-      message: 'Error fetching product',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Error fetching product",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -178,36 +175,37 @@ exports.createProduct = async (req, res, next) => {
     if (!name || !price || stock === undefined || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: name, price, stock, and category are required'
+        message:
+          "Missing required fields: name, price, stock, and category are required",
       });
     }
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one image is required'
+        message: "At least one image is required",
       });
     }
 
     if (!colors || !Array.isArray(colors) || colors.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one color is required'
+        message: "At least one color is required",
       });
     }
 
     if (!sizes || !Array.isArray(sizes) || sizes.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one size is required'
+        message: "At least one size is required",
       });
     }
 
-    const validImages = images.filter(img => img && img.trim());
+    const validImages = images.filter((img) => img && img.trim());
     if (validImages.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'At least one valid image URL is required'
+        message: "At least one valid image URL is required",
       });
     }
 
@@ -219,47 +217,79 @@ exports.createProduct = async (req, res, next) => {
       colors: Array.isArray(colors) ? colors : [],
       sizes: Array.isArray(sizes) ? sizes : [],
       images: validImages,
-      description: req.body.description?.trim() || '',
-      dressStyle: req.body.dressStyle || 'Casual',
+      description: req.body.description?.trim() || "",
+      dressStyle: req.body.dressStyle || "Casual",
       isFeatured: req.body.isFeatured || false,
       isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      isComboOffer: req.body.isComboOffer || false,
+      freeDelivery: req.body.freeDelivery || false,
     };
 
-    if (req.body.originalPrice && !isNaN(parseFloat(req.body.originalPrice)) && parseFloat(req.body.originalPrice) > 0) {
+    if (
+      req.body.originalPrice &&
+      !isNaN(parseFloat(req.body.originalPrice)) &&
+      parseFloat(req.body.originalPrice) > 0
+    ) {
       productData.originalPrice = Number(req.body.originalPrice);
     }
 
-    if (req.body.discount !== undefined && !isNaN(parseFloat(req.body.discount)) && parseFloat(req.body.discount) >= 0 && parseFloat(req.body.discount) <= 100) {
+    if (
+      req.body.discount !== undefined &&
+      !isNaN(parseFloat(req.body.discount)) &&
+      parseFloat(req.body.discount) >= 0 &&
+      parseFloat(req.body.discount) <= 100
+    ) {
       productData.discount = Number(req.body.discount);
     }
 
-    if (req.body.tags && Array.isArray(req.body.tags) && req.body.tags.length > 0) {
-      productData.tags = req.body.tags.filter(t => t && t.trim());
+    if (
+      req.body.comboPrice &&
+      !isNaN(parseFloat(req.body.comboPrice)) &&
+      parseFloat(req.body.comboPrice) > 0
+    ) {
+      productData.comboPrice = Number(req.body.comboPrice);
+    }
+
+    if (
+      req.body.comboDiscount !== undefined &&
+      !isNaN(parseFloat(req.body.comboDiscount)) &&
+      parseFloat(req.body.comboDiscount) >= 0 &&
+      parseFloat(req.body.comboDiscount) <= 100
+    ) {
+      productData.comboDiscount = Number(req.body.comboDiscount);
+    }
+
+    if (
+      req.body.tags &&
+      Array.isArray(req.body.tags) &&
+      req.body.tags.length > 0
+    ) {
+      productData.tags = req.body.tags.filter((t) => t && t.trim());
     }
 
     const product = await Product.create(productData);
 
     res.status(201).json({
       success: true,
-      product
+      product,
     });
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message: 'A product with this name already exists'
+        message: "A product with this name already exists",
       });
     }
-    
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map(err => err.message);
+
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
       return res.status(400).json({
         success: false,
-        message: `Validation error: ${errors.join(', ')}`,
-        errors: errors
+        message: `Validation error: ${errors.join(", ")}`,
+        errors: errors,
       });
     }
-    
+
     next(error);
   }
 };
@@ -274,18 +304,18 @@ exports.updateProduct = async (req, res, next) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
-      runValidators: true
+      runValidators: true,
     });
 
     res.status(200).json({
       success: true,
-      product
+      product,
     });
   } catch (error) {
     next(error);
@@ -302,7 +332,7 @@ exports.deleteProduct = async (req, res, next) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found'
+        message: "Product not found",
       });
     }
 
@@ -310,7 +340,7 @@ exports.deleteProduct = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: 'Product deleted successfully'
+      message: "Product deleted successfully",
     });
   } catch (error) {
     next(error);
@@ -326,22 +356,21 @@ exports.getCategories = async (req, res, next) => {
       { $match: { isActive: true } },
       {
         $group: {
-          _id: '$category',
-          count: { $sum: 1 }
-        }
+          _id: "$category",
+          count: { $sum: 1 },
+        },
       },
-      { $sort: { count: -1 } }
+      { $sort: { count: -1 } },
     ]);
 
     res.status(200).json({
       success: true,
-      categories: categories.map(cat => ({
+      categories: categories.map((cat) => ({
         name: cat._id,
-        count: cat.count
-      }))
+        count: cat.count,
+      })),
     });
   } catch (error) {
     next(error);
   }
 };
-

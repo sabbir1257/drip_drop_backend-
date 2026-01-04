@@ -429,8 +429,10 @@ exports.exportOrdersToSheets = async (req, res, next) => {
   try {
     const { startDate, endDate } = req.body;
 
-    // Build query
-    let query = {};
+    // Build query - Only fetch unsynced orders
+    let query = {
+      syncedToSheet: { $ne: true }, // Only get orders not yet synced
+    };
 
     if (startDate || endDate) {
       query.createdAt = {};
@@ -506,6 +508,13 @@ exports.exportOrdersToSheets = async (req, res, next) => {
     }
 
     const result = await googleSheetsService.exportBulkData(exportData);
+
+    // Mark all exported orders as synced
+    const orderIds = orders.map((order) => order._id);
+    await Order.updateMany(
+      { _id: { $in: orderIds } },
+      { $set: { syncedToSheet: true, syncedAt: new Date() } }
+    );
 
     res.status(200).json({
       success: true,
