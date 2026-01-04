@@ -118,24 +118,43 @@ exports.getLikeCount = async (req, res) => {
 // @access  Public
 exports.checkComboOffer = async (req, res) => {
   try {
+    console.log("=== checkComboOffer called ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+
     const { productId, quantity = 1 } = req.body;
 
     // Validate input
     if (!productId) {
+      console.log("Error: Product ID is missing");
       return res.status(400).json({
         success: false,
         message: "Product ID is required",
       });
     }
 
+    // Validate ObjectId format
+    const mongoose = require("mongoose");
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      console.log("Error: Invalid ObjectId format:", productId);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID format",
+      });
+    }
+
+    console.log("Looking for product with ID:", productId);
+
     // Verify product exists
     const product = await Product.findById(productId);
     if (!product) {
+      console.log("Error: Product not found");
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
+
+    console.log("Product found:", product.name);
 
     // Default settings if Settings model fails
     let settings = {
