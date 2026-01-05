@@ -4,18 +4,7 @@ const Category = require("../models/Category");
 
 dotenv.config();
 
-const defaultCategories = [
-  "T-shirts",
-  "Shirts",
-  "Jeans",
-  "Shorts",
-  "Hoodie",
-  "Jackets",
-  "Sweaters",
-  "Pants",
-  "Accessories",
-  "Shoes",
-];
+const defaultCategories = [];
 
 const seedCategories = async () => {
   try {

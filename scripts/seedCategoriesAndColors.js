@@ -6,17 +6,7 @@ const Color = require("../models/Color");
 // Load environment variables
 dotenv.config();
 
-const categories = [
-  { name: "T-shirts" },
-  { name: "Shirts" },
-  { name: "Jeans" },
-  { name: "Shorts" },
-  { name: "Hoodie" },
-  { name: "Jackets" },
-  { name: "Sweaters" },
-  { name: "Pants" },
-  { name: "Accessories" },
-];
+const categories = [];
 
 const colors = [
   { name: "Black", hexCode: "#000000" },
