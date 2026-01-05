@@ -43,6 +43,7 @@ const corsOptions = {
     const allowedOrigins = [
       process.env.FRONTEND_URL || "http://localhost:3000",
       "http://localhost:3000",
+      "https://drip-drop-frontend.vercel.app/",
       "http://127.0.0.1:3000",
       "http://localhost:3001", // Alternative port
       "http://127.0.0.1:3001",
