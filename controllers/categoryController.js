@@ -11,18 +11,29 @@ exports.getCategories = async (req, res, next) => {
       name: 1,
     });
 
-    // Get product counts for each category
+    // Get product counts and sample image for each category
     const categoriesWithCount = await Promise.all(
       categories.map(async (category) => {
         const count = await Product.countDocuments({
           category: category.name,
           isActive: true,
         });
+
+        // Get a sample product image for the category
+        const sampleProduct = await Product.findOne({
+          category: category.name,
+          isActive: true,
+          images: { $exists: true, $ne: [] },
+        }).select("images");
+
+        const image = sampleProduct?.images?.[0] || null;
+
         return {
           _id: category._id,
           name: category.name,
           slug: category.slug,
           count,
+          image,
           createdAt: category.createdAt,
         };
       })
