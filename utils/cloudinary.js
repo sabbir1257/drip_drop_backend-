@@ -43,7 +43,7 @@ if (validateCloudinaryConfig()) {
 }
 
 // Get Cloudinary signature for frontend upload
-const getSignature = () => {
+const getSignature = (uploadFolder = null) => {
   if (
     !process.env.CLOUDINARY_CLOUD_NAME ||
     !process.env.CLOUDINARY_API_KEY ||
@@ -55,7 +55,8 @@ const getSignature = () => {
   }
 
   const timestamp = Math.round(new Date().getTime() / 1000);
-  const folder = "drip_drop/heroes";
+  // Allow dynamic folder or default to heroes
+  const folder = uploadFolder || "drip_drop/heroes";
 
   // Parameters to sign (must match exactly what client sends)
   const paramsToSign = {
@@ -69,10 +70,10 @@ const getSignature = () => {
     process.env.CLOUDINARY_API_SECRET
   );
 
-  console.log("Generated signature for upload:", {
+  console.log("✅ Generated signature for upload:", {
     timestamp,
     folder,
-    hasSignature: !!signature,
+    signature: signature.substring(0, 8) + "...",
   });
 
   return {
