@@ -318,24 +318,62 @@ exports.adminCreateReview = async (req, res, next) => {
       rating,
       comment,
       autoApprove = true,
+      // New user fields
+      newUserFirstName,
+      newUserLastName,
+      newUserEmail,
     } = req.body;
 
     // Validate required fields
-    if (!userId || !productId || !rating) {
+    if (!productId || !rating) {
       return res.status(400).json({
         success: false,
-        message: "User ID, Product ID, and Rating are required",
+        message: "Product ID and Rating are required",
       });
     }
 
-    // Verify user exists
-    const User = require("../models/User");
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
+    // Either userId OR new user details must be provided
+    if (!userId && !newUserFirstName) {
+      return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: "Either User ID or new user first name is required",
       });
+    }
+
+    const User = require("../models/User");
+    let user;
+    let createdNewUser = false;
+
+    // If userId is provided, verify it exists
+    if (userId) {
+      user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+    } else {
+      // Create a new user for the review
+      const tempEmail =
+        newUserEmail ||
+        `temp_${Date.now()}_${Math.random()
+          .toString(36)
+          .substring(7)}@dripdrop.local`;
+      const tempPassword =
+        Math.random().toString(36).substring(2, 15) +
+        Math.random().toString(36).substring(2, 15);
+
+      user = await User.create({
+        firstName: newUserFirstName,
+        lastName: newUserLastName || "",
+        email: tempEmail,
+        password: tempPassword,
+        role: "user",
+        isEmailVerified: false,
+      });
+
+      createdNewUser = true;
     }
 
     // Verify product exists
@@ -360,7 +398,7 @@ exports.adminCreateReview = async (req, res, next) => {
 
       // Check if review already exists for this order
       const existingReview = await Review.findOne({
-        user: userId,
+        user: user._id,
         order: orderId,
         product: productId,
       });
@@ -376,7 +414,7 @@ exports.adminCreateReview = async (req, res, next) => {
 
     // Create review
     const review = await Review.create({
-      user: userId,
+      user: user._id,
       product: productId,
       order: orderId || null,
       rating,
@@ -395,8 +433,9 @@ exports.adminCreateReview = async (req, res, next) => {
       success: true,
       message: `Review created successfully${
         autoApprove ? " and auto-approved" : ""
-      }`,
+      }${createdNewUser ? " with new user" : ""}`,
       review,
+      newUserCreated: createdNewUser,
     });
   } catch (error) {
     next(error);
