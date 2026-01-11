@@ -32,3 +32,6 @@ build/
 # Uploads
 uploads/
 
+# Test scripts
+scripts/test*.js
+

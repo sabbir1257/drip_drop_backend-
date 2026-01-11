@@ -30,11 +30,6 @@ const seedCategoriesAndColors = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("✅ Connected to MongoDB");
 
-    // Clear existing data (optional - comment out if you want to keep existing data)
-    // await Category.deleteMany({});
-    // await Color.deleteMany({});
-    // console.log('🗑️  Cleared existing categories and colors');
-
     // Seed categories
     console.log("📦 Seeding categories...");
     for (const category of categories) {
