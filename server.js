@@ -130,7 +130,7 @@ app.use("/uploads", express.static("public/uploads"));
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     status: "OK",
-    message: "Drip Drop Backend API is running",
+    message: "DeshWear Backend API is running",
     timestamp: new Date().toISOString(),
   });
 });

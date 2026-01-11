@@ -1,7 +1,7 @@
 {
   "name": "drip_drop_backend",
   "version": "1.0.0",
-  "description": "Drip Drop E-commerce Backend API",
+  "description": "DeshWear E-commerce Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
