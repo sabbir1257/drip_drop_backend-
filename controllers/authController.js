@@ -1,10 +1,11 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const User = require("../models/User");
 
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
+    expiresIn: process.env.JWT_EXPIRE || "7d",
   });
 };
 
@@ -20,7 +21,7 @@ exports.register = async (req, res, next) => {
     if (userExists) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email'
+        message: "User already exists with this email",
       });
     }
 
@@ -30,7 +31,7 @@ exports.register = async (req, res, next) => {
       lastName,
       email,
       password,
-      phone
+      phone,
     });
 
     // Generate token
@@ -45,8 +46,8 @@ exports.register = async (req, res, next) => {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
   } catch (error) {
     next(error);
@@ -64,19 +65,21 @@ exports.login = async (req, res, next) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide email and password'
+        message: "Please provide email and password",
       });
     }
 
     // Normalize email (lowercase)
     const normalizedEmail = email.toLowerCase().trim();
 
-    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+password"
+    );
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: "Invalid email or password",
       });
     }
 
@@ -85,7 +88,7 @@ exports.login = async (req, res, next) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: "Invalid email or password",
       });
     }
 
@@ -102,8 +105,8 @@ exports.login = async (req, res, next) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        avatar: user.avatar
-      }
+        avatar: user.avatar,
+      },
     });
   } catch (error) {
     next(error);
@@ -120,7 +123,7 @@ exports.googleAuth = async (req, res, next) => {
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: "Email is required",
       });
     }
 
@@ -142,12 +145,12 @@ exports.googleAuth = async (req, res, next) => {
     } else {
       // Create new user
       user = await User.create({
-        firstName: firstName || 'User',
-        lastName: lastName || '',
+        firstName: firstName || "User",
+        lastName: lastName || "",
         email: normalizedEmail,
         googleId: googleId,
         avatar: avatar,
-        password: Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12), // Random password for OAuth users
+        password: crypto.randomBytes(32).toString("hex"), // Cryptographically secure random password for OAuth users
         isEmailVerified: true, // Google emails are verified
       });
     }
@@ -165,8 +168,8 @@ exports.googleAuth = async (req, res, next) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        avatar: user.avatar
-      }
+        avatar: user.avatar,
+      },
     });
   } catch (error) {
     next(error);
@@ -182,10 +185,9 @@ exports.getMe = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      user
+      user,
     });
   } catch (error) {
     next(error);
   }
 };
-

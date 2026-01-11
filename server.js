@@ -43,8 +43,8 @@ const corsOptions = {
     // Define allowed origins
     const allowedOrigins = [
       process.env.FRONTEND_URL || "http://localhost:3000",
-      "https://drip-drop-frontend.onrender.com/",
-      "https://drip-drop-frontend.vercel.app/",
+      "https://drip-drop-frontend.onrender.com",
+      "https://drip-drop-frontend.vercel.app",
       "http://127.0.0.1:3000",
       "http://localhost:3001", // Alternative port
       "http://127.0.0.1:3001",
@@ -150,7 +150,6 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/brands", brandRoutes);
 app.use("/api/settings", settingsRoutes);
-app.use("/api/categories", categoryRoutes);
 app.use("/api/colors", colorRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/heroes", heroRoutes);
@@ -185,7 +184,10 @@ const connectDB = async () => {
       process.exit(1);
     }
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
     console.error("❌ MongoDB connection error:", error.message);

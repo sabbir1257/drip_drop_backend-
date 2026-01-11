@@ -1,4 +1,5 @@
 const express = require("express");
+const { body } = require("express-validator");
 const {
   createOrder,
   getOrders,
@@ -13,11 +14,37 @@ const {
   trackOrder,
 } = require("../controllers/orderController");
 const { protect, authorize } = require("../middleware/auth");
+const { validate } = require("../middleware/validator");
 
 const router = express.Router();
 
-// Public routes
-router.post("/", createOrder);
+// Public routes with validation
+router.post(
+  "/",
+  [
+    body("orderItems")
+      .isArray({ min: 1 })
+      .withMessage("Order must have at least one item"),
+    body("shippingAddress.streetAddress")
+      .trim()
+      .notEmpty()
+      .withMessage("Street address is required"),
+    body("shippingAddress.townCity")
+      .trim()
+      .notEmpty()
+      .withMessage("City is required"),
+    body("shippingAddress.zipCode")
+      .trim()
+      .notEmpty()
+      .withMessage("Zip code is required"),
+    body("paymentMethod")
+      .optional()
+      .isIn(["cash", "card", "online"])
+      .withMessage("Invalid payment method"),
+  ],
+  validate,
+  createOrder
+);
 router.post("/track-guest", trackGuestOrder);
 router.get("/track/:orderId", trackOrder); // New tracking endpoint
 
