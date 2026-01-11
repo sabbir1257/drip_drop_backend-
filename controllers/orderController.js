@@ -8,6 +8,11 @@ const googleSheetsService = require("../utils/googleSheets");
 // @access  Public (supports both authenticated and guest orders)
 exports.createOrder = async (req, res, next) => {
   try {
+    console.log("📦 Order creation request received");
+    console.log("👤 User authenticated:", !!req.user);
+    console.log("📋 Request body keys:", Object.keys(req.body));
+    console.log("🏠 Shipping address:", req.body.shippingAddress);
+
     const {
       orderItems,
       shippingAddress,
@@ -19,93 +24,133 @@ exports.createOrder = async (req, res, next) => {
 
     // For authenticated users, get cart from database
     if (req.user && !isGuestOrder) {
+      // Validate shipping address for authenticated users
+      if (
+        !shippingAddress ||
+        !shippingAddress.firstName ||
+        !shippingAddress.phone ||
+        !shippingAddress.streetAddress ||
+        !shippingAddress.townCity
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Complete shipping address is required (firstName, phone, streetAddress, townCity)",
+        });
+      }
+
       const cart = await Cart.findOne({ user: req.user.id }).populate(
         "items.product"
       );
 
-      if (!cart || cart.items.length === 0) {
+      // If cart is empty but orderItems provided, treat as guest-like order
+      if (
+        (!cart || cart.items.length === 0) &&
+        orderItems &&
+        orderItems.length > 0
+      ) {
+        console.log(
+          "⚠️  Authenticated user has no cart in DB, using provided orderItems"
+        );
+        // Continue to guest order flow below
+      } else if (!cart || cart.items.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Cart is empty",
+          message:
+            "Your cart is empty. Please add items to your cart before checking out.",
         });
-      }
+      } else {
+        // Build order items from cart
+        const cartOrderItems = cart.items.map((item) => ({
+          product: item.product._id,
+          name: item.product.name,
+          image: item.product.images[0] || "/logo.jpeg",
+          quantity: item.quantity,
+          size: item.size,
+          color: item.color,
+          price: item.price,
+        }));
 
-      // Build order items from cart
-      const cartOrderItems = cart.items.map((item) => ({
-        product: item.product._id,
-        name: item.product.name,
-        image: item.product.images[0] || "/logo.jpeg",
-        quantity: item.quantity,
-        size: item.size,
-        color: item.color,
-        price: item.price,
-      }));
+        // Calculate totals
+        const subtotal = cart.items.reduce((sum, item) => {
+          return sum + item.price * item.quantity;
+        }, 0);
 
-      // Calculate totals
-      const subtotal = cart.items.reduce((sum, item) => {
-        return sum + item.price * item.quantity;
-      }, 0);
+        const discount = subtotal * (discountPercent / 100);
+        const total = subtotal - discount + deliveryFee;
 
-      const discount = subtotal * (discountPercent / 100);
-      const total = subtotal - discount + deliveryFee;
-
-      // Create order
-      const order = await Order.create({
-        user: req.user.id,
-        isGuestOrder: false,
-        orderItems: cartOrderItems,
-        shippingAddress,
-        paymentMethod: paymentMethod || "cash",
-        subtotal,
-        discount,
-        deliveryFee,
-        total,
-      });
-
-      // Update product stock
-      for (const item of cart.items) {
-        await Product.findByIdAndUpdate(item.product._id, {
-          $inc: { stock: -item.quantity },
+        // Create order
+        const order = await Order.create({
+          user: req.user.id,
+          isGuestOrder: false,
+          orderItems: cartOrderItems,
+          shippingAddress,
+          paymentMethod: paymentMethod || "cash",
+          subtotal,
+          discount,
+          deliveryFee,
+          total,
         });
-      }
 
-      // Clear cart
-      cart.items = [];
-      await cart.save();
-
-      await order.populate("orderItems.product", "name images");
-
-      // Auto-sync to Google Sheets (async, non-blocking)
-      googleSheetsService.initialize().then((initialized) => {
-        if (initialized) {
-          googleSheetsService.syncOrder(order, Order).catch((err) => {
-            console.error(
-              "Failed to sync order to Google Sheets:",
-              err.message
-            );
+        // Update product stock
+        for (const item of cart.items) {
+          await Product.findByIdAndUpdate(item.product._id, {
+            $inc: { stock: -item.quantity },
           });
         }
-      });
 
-      return res.status(201).json({
-        success: true,
-        order,
-      });
+        // Clear cart
+        cart.items = [];
+        await cart.save();
+
+        await order.populate("orderItems.product", "name images");
+
+        // Auto-sync to Google Sheets (async, non-blocking)
+        googleSheetsService.initialize().then((initialized) => {
+          if (initialized) {
+            googleSheetsService.syncOrder(order, Order).catch((err) => {
+              console.error(
+                "Failed to sync order to Google Sheets:",
+                err.message
+              );
+            });
+          }
+        });
+
+        return res.status(201).json({
+          success: true,
+          order,
+        });
+      }
     }
 
     // For guest orders, use orderItems from request body
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Order items are required",
+        message: "Order items are required for guest orders",
+      });
+    }
+
+    // Validate shipping address
+    if (
+      !shippingAddress ||
+      !shippingAddress.firstName ||
+      !shippingAddress.phone ||
+      !shippingAddress.streetAddress ||
+      !shippingAddress.townCity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Complete shipping address is required",
       });
     }
 
     // Validate required fields for guest orders
-    if (!shippingAddress || !shippingAddress.email || !shippingAddress.phone) {
+    if (!shippingAddress.email) {
       return res.status(400).json({
         success: false,
-        message: "Email and phone number are required for guest orders",
+        message: "Email is required for guest orders",
       });
     }
 

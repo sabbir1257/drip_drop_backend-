@@ -16,13 +16,13 @@ const optionalAuth = (req, res, next) => {
   next();
 };
 
+// Check if combo offer applies - MUST come before /:productId route
+router.post("/check-combo", optionalAuth, checkComboOffer);
+
 // Like a product
 router.post("/:productId", optionalAuth, likeProduct);
 
 // Get like count for a product
 router.get("/:productId", optionalAuth, getLikeCount);
-
-// Check if combo offer applies
-router.post("/check-combo", optionalAuth, checkComboOffer);
 
 module.exports = router;

@@ -18,13 +18,23 @@ const { validate } = require("../middleware/validator");
 
 const router = express.Router();
 
-// Public routes with validation
+// Public routes with conditional validation
 router.post(
   "/",
   [
+    // Conditional validation: orderItems required only for guest orders
     body("orderItems")
+      .optional()
       .isArray({ min: 1 })
       .withMessage("Order must have at least one item"),
+    body("shippingAddress.firstName")
+      .trim()
+      .notEmpty()
+      .withMessage("First name is required"),
+    body("shippingAddress.phone")
+      .trim()
+      .notEmpty()
+      .withMessage("Phone number is required"),
     body("shippingAddress.streetAddress")
       .trim()
       .notEmpty()
@@ -33,10 +43,6 @@ router.post(
       .trim()
       .notEmpty()
       .withMessage("City is required"),
-    body("shippingAddress.zipCode")
-      .trim()
-      .notEmpty()
-      .withMessage("Zip code is required"),
     body("paymentMethod")
       .optional()
       .isIn(["cash", "card", "online"])

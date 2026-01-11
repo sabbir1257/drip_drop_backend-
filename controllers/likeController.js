@@ -213,11 +213,15 @@ exports.checkComboOffer = async (req, res) => {
     // Get like count with error handling
     let likeCount = 0;
     try {
-      likeCount = await ProductLike.getTotalLikes(productId, identifier);
-      console.log("Like count retrieved:", likeCount);
+      if (ProductLike.getTotalLikes) {
+        likeCount = await ProductLike.getTotalLikes(productId, identifier);
+        console.log("Like count retrieved:", likeCount);
+      } else {
+        console.warn("getTotalLikes method not found on ProductLike model");
+      }
     } catch (likeError) {
       console.warn("Failed to get like count, using 0:", likeError.message);
-      console.warn("Like error stack:", likeError.stack);
+      // Continue with likeCount = 0 instead of throwing error
     }
 
     // Check if combo offer applies
